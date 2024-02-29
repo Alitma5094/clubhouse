@@ -7,7 +7,6 @@ package database
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -54,82 +53,22 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 	return i, err
 }
 
-const getMessage = `-- name: GetMessage :one
-SELECT messages.id, messages.created_at, messages.updated_at, messages.user_id, messages.text, messages.thread_id,
-       users.name             as user_name,
-       attachments.media_type as attachment_type,
-       attachments.url        as attachment_url
-FROM messages
-         INNER JOIN users ON messages.user_id = users.id
-         LEFT JOIN attachments ON messages.id = attachments.message_id
-
-WHERE messages.id = $1
-
-ORDER BY messages.created_at ASC
-`
-
-type GetMessageRow struct {
-	ID             uuid.UUID      `json:"id"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	UserID         uuid.UUID      `json:"user_id"`
-	Text           string         `json:"text"`
-	ThreadID       uuid.UUID      `json:"thread_id"`
-	UserName       string         `json:"user_name"`
-	AttachmentType NullMedia      `json:"attachment_type"`
-	AttachmentUrl  sql.NullString `json:"attachment_url"`
-}
-
-func (q *Queries) GetMessage(ctx context.Context, id uuid.UUID) (GetMessageRow, error) {
-	row := q.db.QueryRowContext(ctx, getMessage, id)
-	var i GetMessageRow
-	err := row.Scan(
-		&i.ID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.UserID,
-		&i.Text,
-		&i.ThreadID,
-		&i.UserName,
-		&i.AttachmentType,
-		&i.AttachmentUrl,
-	)
-	return i, err
-}
-
 const getMessages = `-- name: GetMessages :many
-SELECT messages.id, messages.created_at, messages.updated_at, messages.user_id, messages.text, messages.thread_id,
-       users.name              as user_name,
-       attachments.attachments, attachments.attachments, attachments.attachments, attachments.attachments, attachments.attachments, attachments.attachments as attachments
+SELECT id, created_at, updated_at, user_id, text, thread_id
 FROM messages
-         INNER JOIN users ON messages.user_id = users.id
-         LEFT JOIN attachments ON messages.id = attachments.message_id
-
-WHERE messages.thread_id = $1
-
-ORDER BY messages.created_at
+WHERE thread_id = $1
+ORDER BY created_at
 `
 
-type GetMessagesRow struct {
-	ID         uuid.UUID  `json:"id"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
-	UserID     uuid.UUID  `json:"user_id"`
-	Text       string     `json:"text"`
-	ThreadID   uuid.UUID  `json:"thread_id"`
-	UserName   string     `json:"user_name"`
-	Attachment Attachment `json:"attachment"`
-}
-
-func (q *Queries) GetMessages(ctx context.Context, threadID uuid.UUID) ([]GetMessagesRow, error) {
+func (q *Queries) GetMessages(ctx context.Context, threadID uuid.UUID) ([]Message, error) {
 	rows, err := q.db.QueryContext(ctx, getMessages, threadID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetMessagesRow
+	var items []Message
 	for rows.Next() {
-		var i GetMessagesRow
+		var i Message
 		if err := rows.Scan(
 			&i.ID,
 			&i.CreatedAt,
@@ -137,13 +76,6 @@ func (q *Queries) GetMessages(ctx context.Context, threadID uuid.UUID) ([]GetMes
 			&i.UserID,
 			&i.Text,
 			&i.ThreadID,
-			&i.UserName,
-			&i.Attachment.ID,
-			&i.Attachment.CreatedAt,
-			&i.Attachment.UpdatedAt,
-			&i.Attachment.MediaType,
-			&i.Attachment.Url,
-			&i.Attachment.MessageID,
 		); err != nil {
 			return nil, err
 		}

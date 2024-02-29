@@ -8,7 +8,7 @@ SELECT *
 FROM attachments
 WHERE message_id = $1;
 
--- name DeleteAttachment :exec
+-- name: DeleteAttachment :exec
 DELETE
 FROM attachments
 WHERE id = $1;

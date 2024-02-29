@@ -13,15 +13,13 @@ import (
 )
 
 const createEvent = `-- name: CreateEvent :one
-INSERT INTO events (
-        id,
-        created_at,
-        updated_at,
-        title,
-        start_at,
-        end_at,
-        user_id
-    )
+INSERT INTO events (id,
+                    created_at,
+                    updated_at,
+                    title,
+                    start_at,
+                    end_at,
+                    user_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id, created_at, updated_at, title, start_at, end_at, user_id
 `
@@ -57,6 +55,17 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 		&i.UserID,
 	)
 	return i, err
+}
+
+const deleteEvent = `-- name: DeleteEvent :exec
+DELETE
+FROM events
+WHERE id = $1
+`
+
+func (q *Queries) DeleteEvent(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteEvent, id)
+	return err
 }
 
 const getEvents = `-- name: GetEvents :many

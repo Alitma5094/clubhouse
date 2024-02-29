@@ -13,13 +13,11 @@ import (
 )
 
 const createThread = `-- name: CreateThread :one
-INSERT INTO threads (
-        id,
-        created_at,
-        updated_at,
-        user_id,
-        title
-    )
+INSERT INTO threads (id,
+                     created_at,
+                     updated_at,
+                     user_id,
+                     title)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING id, created_at, updated_at, user_id, title
 `
@@ -54,7 +52,7 @@ func (q *Queries) CreateThread(ctx context.Context, arg CreateThreadParams) (Thr
 const getThreads = `-- name: GetThreads :many
 SELECT threads.id, threads.created_at, threads.updated_at, threads.user_id, threads.title
 FROM threads
-    INNER JOIN users_threads ON threads.id = users_threads.thread_id
+         INNER JOIN users_threads ON threads.id = users_threads.thread_id
 WHERE users_threads.user_id = $1
 `
 

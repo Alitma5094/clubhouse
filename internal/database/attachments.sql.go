@@ -47,3 +47,50 @@ func (q *Queries) CreateAttachment(ctx context.Context, arg CreateAttachmentPara
 	)
 	return i, err
 }
+
+const deleteAttachment = `-- name: DeleteAttachment :exec
+DELETE
+FROM attachments
+WHERE id = $1
+`
+
+func (q *Queries) DeleteAttachment(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteAttachment, id)
+	return err
+}
+
+const getAttachments = `-- name: GetAttachments :many
+SELECT id, created_at, updated_at, media_type, url, message_id
+FROM attachments
+WHERE message_id = $1
+`
+
+func (q *Queries) GetAttachments(ctx context.Context, messageID uuid.UUID) ([]Attachment, error) {
+	rows, err := q.db.QueryContext(ctx, getAttachments, messageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Attachment
+	for rows.Next() {
+		var i Attachment
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.MediaType,
+			&i.Url,
+			&i.MessageID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
