@@ -15,3 +15,10 @@ WHERE users_threads.user_id = $1;
 INSERT INTO users_threads (id, created_at, updated_at, user_id, thread_id)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
+-- name: DeleteThread :exec
+DELETE
+FROM users_threads
+WHERE thread_id = $1;
+DELETE
+FROM threads
+WHERE id = $1;

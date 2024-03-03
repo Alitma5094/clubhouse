@@ -49,6 +49,17 @@ func (q *Queries) CreateThread(ctx context.Context, arg CreateThreadParams) (Thr
 	return i, err
 }
 
+const deleteThread = `-- name: DeleteThread :exec
+DELETE
+FROM users_threads
+WHERE thread_id = $1
+`
+
+func (q *Queries) DeleteThread(ctx context.Context, threadID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteThread, threadID)
+	return err
+}
+
 const getThreads = `-- name: GetThreads :many
 SELECT threads.id, threads.created_at, threads.updated_at, threads.user_id, threads.title
 FROM threads

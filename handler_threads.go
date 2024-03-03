@@ -72,3 +72,19 @@ func (cfg *apiConfig) handlerThreadsAddUsers(w http.ResponseWriter, r *http.Requ
 	}
 	respondWithJSON(w, http.StatusCreated, nil)
 }
+
+func (cfg *apiConfig) handlerThreadsDelete(w http.ResponseWriter, r *http.Request, user database.User) {
+	idParam := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idParam)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "invalid thread id")
+		return
+	}
+
+	err = cfg.DB.DeleteThread(r.Context(), id)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't delete thread")
+		return
+	}
+	respondWithJSON(w, http.StatusOK, nil)
+}

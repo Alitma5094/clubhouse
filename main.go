@@ -75,6 +75,7 @@ func main() {
 	// Threads routes
 	apiRouter.Post("/threads", apiConf.middlewareAuth(apiConf.handlerThreadsCreate))
 	apiRouter.Get("/threads", apiConf.middlewareAuth(apiConf.handlerThreadsGet))
+	apiRouter.Delete("/threads/{id}", apiConf.middlewareAuth(apiConf.handlerThreadsDelete))
 	apiRouter.Post("/threads/{id}/subscribe", apiConf.middlewareAuth(apiConf.handlerThreadsAddUsers))
 
 	// Events routes
