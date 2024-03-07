@@ -13,12 +13,14 @@ import (
 )
 
 const createMessage = `-- name: CreateMessage :one
-INSERT INTO messages (id,
-                      created_at,
-                      updated_at,
-                      user_id,
-                      text,
-                      thread_id)
+INSERT INTO messages (
+        id,
+        created_at,
+        updated_at,
+        user_id,
+        text,
+        thread_id
+    )
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, created_at, updated_at, user_id, text, thread_id
 `
@@ -57,7 +59,7 @@ const getMessages = `-- name: GetMessages :many
 SELECT id, created_at, updated_at, user_id, text, thread_id
 FROM messages
 WHERE thread_id = $1
-ORDER BY created_at
+ORDER BY created_at DESC
 `
 
 func (q *Queries) GetMessages(ctx context.Context, threadID uuid.UUID) ([]Message, error) {

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -53,6 +54,7 @@ const (
 	EventThreadsGet     = "threads_get"
 	EventThreadsCreated = "threads_created"
 	EventMessagesGet    = "messages_get"
+	EventMessagesCreate = "messages_create"
 )
 
 // SendMessageHandler will send out a message to all other participants in the chat
@@ -131,6 +133,45 @@ func (cfg *apiConfig) SendMessagesGetWS(event ws.Event, c *ws.Client) error {
 
 	// Create a new Event
 	outgoingEvent := ws.Event{Payload: json.RawMessage(data), Type: EventMessagesGet}
+	// Broadcast to all other Clients
+	c.Egress <- outgoingEvent
+	return nil
+}
+
+type CreateMessagesEvent struct {
+	ThreadID string `json:"thread_id"`
+	Text     string `json:"text"`
+}
+
+func (cfg *apiConfig) CreateMessageHandlerWS(event ws.Event, c *ws.Client) error {
+
+	var eventData CreateMessagesEvent
+	if err := json.Unmarshal(event.Payload, &eventData); err != nil {
+		return fmt.Errorf("bad payload in request: %v", err)
+	}
+
+	err := ValidateMessageInput(eventData.Text)
+	if err != nil {
+		return fmt.Errorf("bad message: %v", err)
+	}
+
+	idUUID, err := uuid.Parse(eventData.ThreadID)
+	if err != nil {
+		return fmt.Errorf("bad thread id: %v", err)
+	}
+
+	newMessage, err := cfg.DB.CreateMessage(context.Background(), database.CreateMessageParams{ID: uuid.New(), CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(), UserID: c.UserId, Text: eventData.Text, ThreadID: idUUID})
+	if err != nil {
+		return fmt.Errorf("failed to create message: %v", err)
+	}
+
+	data, err := json.Marshal(newMessage)
+	if err != nil {
+		return fmt.Errorf("failed to marshal broadcast message: %v", err)
+	}
+
+	// Create a new Event
+	outgoingEvent := ws.Event{Payload: json.RawMessage(data), Type: EventMessagesCreate}
 	// Broadcast to all other Clients
 	c.Egress <- outgoingEvent
 	return nil

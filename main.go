@@ -87,6 +87,7 @@ func main() {
 	apiConf.WSManager.Handlers[EventThreadsGet] = apiConf.GetThreadsHandlerWS
 	apiConf.WSManager.Handlers[EventThreadsCreated] = apiConf.GetThreadsHandlerWS
 	apiConf.WSManager.Handlers[EventMessagesGet] = apiConf.SendMessagesGetWS
+	apiConf.WSManager.Handlers[EventMessagesCreate] = apiConf.CreateMessageHandlerWS
 	apiRouter.Get("/ws/{apiKey}", apiConf.handlerWS)
 
 	router.Mount("/v1", apiRouter)
