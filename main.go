@@ -2,6 +2,7 @@ package main
 
 import (
 	"clubhouse/internal/database"
+	"clubhouse/internal/ws"
 	"database/sql"
 	"log"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 type apiConfig struct {
 	DB        *database.Queries
 	JWTSecret string
+	WSManager *ws.Manager
 }
 
 func main() {
@@ -42,7 +44,7 @@ func main() {
 	}
 	dbQueries := database.New(db)
 
-	apiConf := apiConfig{DB: dbQueries, JWTSecret: jwtSecret}
+	apiConf := apiConfig{DB: dbQueries, JWTSecret: jwtSecret, WSManager: ws.NewManager()}
 
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
@@ -81,6 +83,11 @@ func main() {
 	// Events routes
 	apiRouter.Get("/events", apiConf.middlewareAuth(apiConf.handlerEventsGet))
 	apiRouter.Post("/events", apiConf.middlewareAuth(apiConf.handlerEventsCreate))
+
+	apiConf.WSManager.Handlers[EventThreadsGet] = apiConf.GetThreadsHandlerWS
+	apiConf.WSManager.Handlers[EventThreadsCreated] = apiConf.GetThreadsHandlerWS
+	apiConf.WSManager.Handlers[EventMessagesGet] = apiConf.SendMessagesGetWS
+	apiRouter.Get("/ws/{apiKey}", apiConf.handlerWS)
 
 	router.Mount("/v1", apiRouter)
 
