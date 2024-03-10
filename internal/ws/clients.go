@@ -1,7 +1,6 @@
 package ws
 
 import (
-	"clubhouse/internal/database"
 	"encoding/json"
 	"log"
 	"time"
@@ -23,30 +22,23 @@ type ClientList map[*Client]bool
 
 type Client struct {
 	// the websocket connection
-	connection *websocket.Conn
+	Connection *websocket.Conn
 
 	// manager is the manager used to manage the client
-	manager *Manager
+	Manager *Manager
 	// egress is used to avoid concurrent writes on the WebSocket
 	Egress chan Event
 
 	UserId uuid.UUID
-}
 
-func NewClient(conn *websocket.Conn, manager *Manager, user database.User) *Client {
-	return &Client{
-		connection: conn,
-		manager:    manager,
-		Egress:     make(chan Event),
-		UserId:     user.ID,
-	}
+	SubscribedThreads []uuid.UUID
 }
 
 // pongHandler is used to handle PongMessages for the Client
 func (c *Client) pongHandler(pongMsg string) error {
 	// Current time + Pong Wait time
 	log.Println("pong")
-	return c.connection.SetReadDeadline(time.Now().Add(pongWait))
+	return c.Connection.SetReadDeadline(time.Now().Add(pongWait))
 }
 
 // readMessages will start the client to read messages and handle them
@@ -56,24 +48,24 @@ func (c *Client) ReadMessages() {
 	defer func() {
 		// Graceful Close the Connection once this
 		// function is done
-		c.manager.RemoveClient(c)
+		c.Manager.RemoveClient(c)
 	}()
 	// Set Max Size of Messages in Bytes
-	c.connection.SetReadLimit(512)
+	c.Connection.SetReadLimit(512)
 	// Configure Wait time for Pong response, use Current time + pongWait
 	// This has to be done here to set the first initial timer.
-	if err := c.connection.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+	if err := c.Connection.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
 		log.Println(err)
 		return
 	}
 	// Configure how to handle Pong responses
-	c.connection.SetPongHandler(c.pongHandler)
+	c.Connection.SetPongHandler(c.pongHandler)
 
 	// Loop Forever
 	for {
 		// ReadMessage is used to read the next message in queue
 		// in the connection
-		_, payload, err := c.connection.ReadMessage()
+		_, payload, err := c.Connection.ReadMessage()
 
 		if err != nil {
 			// If Connection is closed, we will Receive an error here
@@ -90,7 +82,7 @@ func (c *Client) ReadMessages() {
 			break // Breaking the connection here might be harsh xD
 		}
 		// Route the Event
-		if err := c.manager.routeEvent(request, c); err != nil {
+		if err := c.Manager.routeEvent(request, c); err != nil {
 			log.Println("Error handling Message: ", err)
 		}
 	}
@@ -103,7 +95,7 @@ func (c *Client) WriteMessages() {
 	defer func() {
 		ticker.Stop()
 		// Graceful close if this triggers a closing
-		c.manager.RemoveClient(c)
+		c.Manager.RemoveClient(c)
 	}()
 
 	for {
@@ -112,7 +104,7 @@ func (c *Client) WriteMessages() {
 			// Ok will be false Incase the egress channel is closed
 			if !ok {
 				// Manager has closed this connection channel, so communicate that to frontend
-				if err := c.connection.WriteMessage(websocket.CloseMessage, nil); err != nil {
+				if err := c.Connection.WriteMessage(websocket.CloseMessage, nil); err != nil {
 					// Log that the connection is closed and the reason
 					log.Println("connection closed: ", err)
 				}
@@ -125,14 +117,14 @@ func (c *Client) WriteMessages() {
 				return // closes the connection, should we really
 			}
 			// Write a Regular text message to the connection
-			if err := c.connection.WriteMessage(websocket.TextMessage, data); err != nil {
+			if err := c.Connection.WriteMessage(websocket.TextMessage, data); err != nil {
 				log.Println(err)
 			}
 			log.Println("sent message")
 		case <-ticker.C:
 			log.Println("ping")
 			// Send the ping
-			if err := c.connection.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
+			if err := c.Connection.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
 				log.Println("writemsg: ", err)
 				return // return to break this goroutine triggering cleanup
 			}

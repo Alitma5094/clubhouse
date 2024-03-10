@@ -86,7 +86,7 @@ func (m *Manager) RemoveClient(client *Client) {
 	// Check if Client exists, then delete it
 	if _, ok := m.Clients[client]; ok {
 		// close connection
-		client.connection.Close()
+		client.Connection.Close()
 		// remove
 		delete(m.Clients, client)
 	}

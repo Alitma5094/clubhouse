@@ -13,11 +13,13 @@ import (
 )
 
 const createThread = `-- name: CreateThread :one
-INSERT INTO threads (id,
-                     created_at,
-                     updated_at,
-                     user_id,
-                     title)
+INSERT INTO threads (
+        id,
+        created_at,
+        updated_at,
+        user_id,
+        title
+    )
 VALUES ($1, $2, $3, $4, $5)
 RETURNING id, created_at, updated_at, user_id, title
 `
@@ -50,8 +52,7 @@ func (q *Queries) CreateThread(ctx context.Context, arg CreateThreadParams) (Thr
 }
 
 const deleteThread = `-- name: DeleteThread :exec
-DELETE
-FROM users_threads
+DELETE FROM users_threads
 WHERE thread_id = $1
 `
 
@@ -63,7 +64,7 @@ func (q *Queries) DeleteThread(ctx context.Context, threadID uuid.UUID) error {
 const getThreads = `-- name: GetThreads :many
 SELECT threads.id, threads.created_at, threads.updated_at, threads.user_id, threads.title
 FROM threads
-         INNER JOIN users_threads ON threads.id = users_threads.thread_id
+    INNER JOIN users_threads ON threads.id = users_threads.thread_id
 WHERE users_threads.user_id = $1
 `
 
@@ -86,6 +87,35 @@ func (q *Queries) GetThreads(ctx context.Context, userID uuid.UUID) ([]Thread, e
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUserSubscribedThreads = `-- name: GetUserSubscribedThreads :many
+SELECT thread_id
+FROM users_threads
+WHERE user_id = $1
+`
+
+func (q *Queries) GetUserSubscribedThreads(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.QueryContext(ctx, getUserSubscribedThreads, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var thread_id uuid.UUID
+		if err := rows.Scan(&thread_id); err != nil {
+			return nil, err
+		}
+		items = append(items, thread_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

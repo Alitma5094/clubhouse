@@ -13,7 +13,23 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
+
+func (cfg *apiConfig) NewClient(conn *websocket.Conn, manager *ws.Manager, user database.User) *ws.Client {
+	subs, err := cfg.DB.GetUserSubscribedThreads(context.Background(), user.ID)
+	if err != nil {
+		log.Println("failed to get user subscribed threads", err)
+	}
+
+	return &ws.Client{
+		Connection:        conn,
+		Manager:           manager,
+		Egress:            make(chan ws.Event),
+		UserId:            user.ID,
+		SubscribedThreads: subs,
+	}
+}
 
 func (cfg *apiConfig) handlerWS(w http.ResponseWriter, r *http.Request) {
 	// Grab the OTP in the Get param
@@ -43,7 +59,7 @@ func (cfg *apiConfig) handlerWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Create new Client
-	client := ws.NewClient(conn, cfg.WSManager, user)
+	client := cfg.NewClient(conn, cfg.WSManager, user)
 	cfg.WSManager.AddClient(client)
 	go client.ReadMessages()
 	go client.WriteMessages()
@@ -104,9 +120,44 @@ type GetMessagesEvent struct {
 	ThreadID string `json:"thread_id"`
 }
 
+type SimplifiedMessage struct {
+	ID                  uuid.UUID      `json:"id"`
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
+	UserID              uuid.UUID      `json:"user_id"`
+	Text                string         `json:"text"`
+	ThreadID            uuid.UUID      `json:"thread_id"`
+	AttachmentMediaType database.Media `json:"attachment_media_type"`
+	AttachmentUrl       string         `json:"attachment_url"`
+}
+
 type GetMessagesEventReturn struct {
-	ThreadID uuid.UUID          `json:"thread_id"`
-	Messages []database.Message `json:"messages"`
+	ThreadID uuid.UUID           `json:"thread_id"`
+	Messages []SimplifiedMessage `json:"messages"`
+}
+
+func ConvertToSimplifiedMessage(original database.GetMessagesWithAttachmentRow) SimplifiedMessage {
+	var attachmentMediaType database.Media
+	var attachmentUrl string
+
+	if original.AttachmentMediaType.Valid {
+		attachmentMediaType = original.AttachmentMediaType.Media
+	}
+
+	if original.AttachmentUrl.Valid {
+		attachmentUrl = original.AttachmentUrl.String
+	}
+
+	return SimplifiedMessage{
+		ID:                  original.ID,
+		CreatedAt:           original.CreatedAt,
+		UpdatedAt:           original.UpdatedAt,
+		UserID:              original.UserID,
+		Text:                original.Text,
+		ThreadID:            original.ThreadID,
+		AttachmentMediaType: attachmentMediaType,
+		AttachmentUrl:       attachmentUrl,
+	}
 }
 
 func (cfg *apiConfig) SendMessagesGetWS(event ws.Event, c *ws.Client) error {
@@ -121,12 +172,18 @@ func (cfg *apiConfig) SendMessagesGetWS(event ws.Event, c *ws.Client) error {
 		return fmt.Errorf("bad thread id: %v", err)
 	}
 
-	dbMessages, err := cfg.DB.GetMessages(context.Background(), idUUID)
+	dbMessages, err := cfg.DB.GetMessagesWithAttachment(context.Background(), idUUID)
 	if err != nil {
 		return fmt.Errorf("cant get messages: %v", err)
 	}
 
-	data, err := json.Marshal(GetMessagesEventReturn{ThreadID: idUUID, Messages: dbMessages})
+	var simplifiedMessages []SimplifiedMessage
+	for _, message := range dbMessages {
+		simplifiedMessages = append(simplifiedMessages, ConvertToSimplifiedMessage(message))
+
+	}
+
+	data, err := json.Marshal(GetMessagesEventReturn{ThreadID: idUUID, Messages: simplifiedMessages})
 	if err != nil {
 		return fmt.Errorf("failed to marshal broadcast message: %v", err)
 	}
@@ -173,6 +230,21 @@ func (cfg *apiConfig) CreateMessageHandlerWS(event ws.Event, c *ws.Client) error
 	// Create a new Event
 	outgoingEvent := ws.Event{Payload: json.RawMessage(data), Type: EventMessagesCreate}
 	// Broadcast to all other Clients
-	c.Egress <- outgoingEvent
+	// c.Egress <- outgoingEvent
+	// return nil
+	for client := range cfg.WSManager.Clients {
+		if contains(client.SubscribedThreads, idUUID) {
+			client.Egress <- outgoingEvent
+		}
+	}
 	return nil
+}
+
+func contains(s []uuid.UUID, e uuid.UUID) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
