@@ -12,6 +12,30 @@ import (
 	"github.com/google/uuid"
 )
 
+type Message struct {
+	ID                  uuid.UUID `json:"id"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
+	UserID              uuid.UUID `json:"user_id"`
+	Text                string    `json:"text"`
+	ThreadID            uuid.UUID `json:"thread_id"`
+	AttachmentMediaType string    `json:"attachment_media_type"`
+	AttachmentURL       string    `json:"attachment_url"`
+}
+
+func MessageWithAttachmentToMessage(mwa database.GetMessagesWithAttachmentRow) Message {
+	return Message{
+		ID:                  mwa.ID,
+		CreatedAt:           mwa.CreatedAt,
+		UpdatedAt:           mwa.UpdatedAt,
+		UserID:              mwa.UserID,
+		Text:                mwa.Text,
+		ThreadID:            mwa.ThreadID,
+		AttachmentMediaType: string(mwa.AttachmentMediaType.Media),
+		AttachmentURL:       mwa.AttachmentUrl.String,
+	}
+}
+
 func (cfg *apiConfig) handlerMessagesCreate(w http.ResponseWriter, r *http.Request, user database.User) {
 	type parameters struct {
 		Text     string    `json:"text"`
@@ -38,6 +62,8 @@ func (cfg *apiConfig) handlerMessagesCreate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	cfg.BroadcastMessagesCreated(&newMessage)
+
 	respondWithJSON(w, http.StatusCreated, newMessage)
 }
 
@@ -49,14 +75,19 @@ func (cfg *apiConfig) handlerMessagesGet(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	dbMessages, err := cfg.DB.GetMessages(r.Context(), id)
+	dbMessages, err := cfg.DB.GetMessagesWithAttachment(r.Context(), id)
 	if err != nil {
 		log.Print(err.Error())
 		respondWithError(w, http.StatusInternalServerError, "Couldn't get messages")
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, dbMessages)
+	messages := make([]Message, len(dbMessages))
+	for i, m := range dbMessages {
+		messages[i] = MessageWithAttachmentToMessage(m)
+	}
+
+	respondWithJSON(w, http.StatusOK, messages)
 }
 
 var (

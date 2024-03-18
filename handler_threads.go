@@ -31,7 +31,7 @@ func (cfg *apiConfig) handlerThreadsCreate(w http.ResponseWriter, r *http.Reques
 		respondWithError(w, http.StatusInternalServerError, "Couldn't subscribe to thread")
 		return
 	}
-	cfg.sendThreadsCreatedWS(&newThread)
+	cfg.BroadcastThreadsCreate(&newThread)
 
 	respondWithJSON(w, http.StatusCreated, newThread)
 }

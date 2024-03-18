@@ -10,7 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/joho/godotenv"
+
+	// "github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
@@ -21,7 +22,7 @@ type apiConfig struct {
 }
 
 func main() {
-	godotenv.Load(".env")
+	// godotenv.Load(".env")
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -45,7 +46,7 @@ func main() {
 	dbQueries := database.New(db)
 
 	apiConf := apiConfig{DB: dbQueries, JWTSecret: jwtSecret, WSManager: ws.NewManager()}
-
+	apiConf.SetupEventHandlers()
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
 		// AllowedOrigins:   []string{"https://foo.com"}, // Use this to allow specific origin hosts
@@ -84,10 +85,6 @@ func main() {
 	apiRouter.Get("/events", apiConf.middlewareAuth(apiConf.handlerEventsGet))
 	apiRouter.Post("/events", apiConf.middlewareAuth(apiConf.handlerEventsCreate))
 
-	apiConf.WSManager.Handlers[EventThreadsGet] = apiConf.GetThreadsHandlerWS
-	apiConf.WSManager.Handlers[EventThreadsCreated] = apiConf.GetThreadsHandlerWS
-	apiConf.WSManager.Handlers[EventMessagesGet] = apiConf.SendMessagesGetWS
-	apiConf.WSManager.Handlers[EventMessagesCreate] = apiConf.CreateMessageHandlerWS
 	apiRouter.Get("/ws/{apiKey}", apiConf.handlerWS)
 
 	router.Mount("/v1", apiRouter)
