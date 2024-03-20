@@ -3,6 +3,7 @@ package main
 import (
 	"clubhouse/internal/database"
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -87,6 +88,78 @@ func (cfg *apiConfig) handlerThreadsDelete(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't delete thread")
 		return
+	}
+	respondWithJSON(w, http.StatusOK, nil)
+}
+
+func (cfg *apiConfig) handlerThreadsGetMembers(w http.ResponseWriter, r *http.Request, user database.User) {
+	idParam := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idParam)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "invalid thread id")
+		return
+	}
+	dbUsers, err := cfg.DB.GetSubscribedUsers(r.Context(), id)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get threads")
+		return
+	}
+
+	log.Println(len(dbUsers))
+	users := []User{}
+	for _, dbUser := range dbUsers {
+		users = append(users, DatabaseUserToUser(dbUser))
+	}
+	respondWithJSON(w, http.StatusOK, users)
+}
+
+func (cfg *apiConfig) handlerUnsubscribedUsersGet(w http.ResponseWriter, r *http.Request, user database.User) {
+	idParam := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idParam)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "invalid thread id")
+		return
+	}
+
+	dbUsers, err := cfg.DB.GetUnsubscribedUsers(r.Context(), id)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get users")
+		return
+	}
+	users := []User{}
+	for _, dbUser := range dbUsers {
+		users = append(users, DatabaseUserToUser(dbUser))
+	}
+
+	respondWithJSON(w, http.StatusOK, users)
+}
+
+func (cfg *apiConfig) handlerUnsubscribeUsers(w http.ResponseWriter, r *http.Request, user database.User) {
+	idParam := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idParam)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "invalid thread id")
+		return
+	}
+
+	type parameters struct {
+		UserIDs []uuid.UUID `json:"user_ids"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err = decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters")
+		return
+	}
+
+	for _, userID := range params.UserIDs {
+		err = cfg.DB.UnsubscribeFromThread(r.Context(), database.UnsubscribeFromThreadParams{ThreadID: id, UserID: userID})
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Couldn't unsubscribe from thread")
+			return
+		}
 	}
 	respondWithJSON(w, http.StatusOK, nil)
 }

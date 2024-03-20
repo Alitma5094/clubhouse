@@ -6,15 +6,15 @@ services:
       - "8080:8080"
     environment:
       - PORT=8080
-      - DB_URL=postgres://user:password@localhost:5432/dbname?sslmode=disable
-      - JWT_SECRET=your_jwt_secret
-    # depends_on:
-    #   - db
-  # db:
-  #   image: postgres:latest
-  #   environment:
-  #     - POSTGRES_USER=user
-  #     - POSTGRES_PASSWORD=password
-  #     - POSTGRES_DB=dbname
-  #   ports:
-  #     - "5432:5432"
+      - DB_URL=postgres://clubhouse:clubhouse@db:5432/clubhouse?sslmode=disable
+      - JWT_SECRET=tzlprcokFPx1yY/OGh+i+O1PEFF9bOL7DImZ6EE+eWZBjRaXlv74t4bDTtPoNYIl
+    depends_on:
+      - db
+  db:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=clubhouse
+      - POSTGRES_PASSWORD=clubhouse
+      - POSTGRES_DB=clubhouse
+    ports:
+      - "5433:5432"

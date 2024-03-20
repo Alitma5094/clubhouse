@@ -79,7 +79,10 @@ func main() {
 	apiRouter.Post("/threads", apiConf.middlewareAuth(apiConf.handlerThreadsCreate))
 	apiRouter.Get("/threads", apiConf.middlewareAuth(apiConf.handlerThreadsGet))
 	apiRouter.Delete("/threads/{id}", apiConf.middlewareAuth(apiConf.handlerThreadsDelete))
+	apiRouter.Get("/threads/{id}/subscribe", apiConf.middlewareAuth(apiConf.handlerUnsubscribedUsersGet))
 	apiRouter.Post("/threads/{id}/subscribe", apiConf.middlewareAuth(apiConf.handlerThreadsAddUsers))
+	apiRouter.Delete("/threads/{id}/subscribe", apiConf.middlewareAuth(apiConf.handlerUnsubscribeUsers))
+	apiRouter.Get("/threads/{id}/members", apiConf.middlewareAuth(apiConf.handlerThreadsGetMembers))
 
 	// Events routes
 	apiRouter.Get("/events", apiConf.middlewareAuth(apiConf.handlerEventsGet))

@@ -61,6 +61,43 @@ func (q *Queries) DeleteThread(ctx context.Context, threadID uuid.UUID) error {
 	return err
 }
 
+const getSubscribedUsers = `-- name: GetSubscribedUsers :many
+SELECT users.id, users.created_at, users.updated_at, users.email, users.name, users.hashed_password
+FROM users
+    INNER JOIN users_threads ON users.id = users_threads.user_id
+WHERE users_threads.thread_id = $1
+`
+
+func (q *Queries) GetSubscribedUsers(ctx context.Context, threadID uuid.UUID) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, getSubscribedUsers, threadID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Email,
+			&i.Name,
+			&i.HashedPassword,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getThreads = `-- name: GetThreads :many
 SELECT threads.id, threads.created_at, threads.updated_at, threads.user_id, threads.title
 FROM threads
@@ -83,6 +120,46 @@ func (q *Queries) GetThreads(ctx context.Context, userID uuid.UUID) ([]Thread, e
 			&i.UpdatedAt,
 			&i.UserID,
 			&i.Title,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUnsubscribedUsers = `-- name: GetUnsubscribedUsers :many
+SELECT users.id, users.created_at, users.updated_at, users.email, users.name, users.hashed_password
+FROM users
+WHERE users.id NOT IN (
+        SELECT user_id
+        FROM users_threads
+        WHERE thread_id = $1
+    )
+`
+
+func (q *Queries) GetUnsubscribedUsers(ctx context.Context, threadID uuid.UUID) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, getUnsubscribedUsers, threadID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Email,
+			&i.Name,
+			&i.HashedPassword,
 		); err != nil {
 			return nil, err
 		}
@@ -157,4 +234,20 @@ func (q *Queries) SubscribeToThread(ctx context.Context, arg SubscribeToThreadPa
 		&i.ThreadID,
 	)
 	return i, err
+}
+
+const unsubscribeFromThread = `-- name: UnsubscribeFromThread :exec
+DELETE FROM users_threads
+WHERE user_id = $1
+    AND thread_id = $2
+`
+
+type UnsubscribeFromThreadParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	ThreadID uuid.UUID `json:"thread_id"`
+}
+
+func (q *Queries) UnsubscribeFromThread(ctx context.Context, arg UnsubscribeFromThreadParams) error {
+	_, err := q.db.ExecContext(ctx, unsubscribeFromThread, arg.UserID, arg.ThreadID)
+	return err
 }
