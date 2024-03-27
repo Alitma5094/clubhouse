@@ -88,6 +88,10 @@ func main() {
 	apiRouter.Get("/events", apiConf.middlewareAuth(apiConf.handlerEventsGet))
 	apiRouter.Post("/events", apiConf.middlewareAuth(apiConf.handlerEventsCreate))
 
+	// Images routes
+	apiRouter.Get("/images/{image}", apiConf.handlerImagesGet)
+	apiRouter.Post("/upload", apiConf.middlewareAuth(apiConf.handlerImagesCreate))
+
 	apiRouter.Get("/ws/{apiKey}", apiConf.handlerWS)
 
 	router.Mount("/v1", apiRouter)

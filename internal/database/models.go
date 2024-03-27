@@ -5,64 +5,10 @@
 package database
 
 import (
-	"database/sql/driver"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 )
-
-type Media string
-
-const (
-	MediaImage    Media = "image"
-	MediaVideo    Media = "video"
-	MediaDocument Media = "document"
-)
-
-func (e *Media) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = Media(s)
-	case string:
-		*e = Media(s)
-	default:
-		return fmt.Errorf("unsupported scan type for Media: %T", src)
-	}
-	return nil
-}
-
-type NullMedia struct {
-	Media Media `json:"media"`
-	Valid bool  `json:"valid"` // Valid is true if Media is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullMedia) Scan(value interface{}) error {
-	if value == nil {
-		ns.Media, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.Media.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullMedia) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.Media), nil
-}
-
-type Attachment struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	MediaType Media     `json:"media_type"`
-	Url       string    `json:"url"`
-	MessageID uuid.UUID `json:"message_id"`
-}
 
 type Event struct {
 	ID        uuid.UUID `json:"id"`
@@ -75,12 +21,13 @@ type Event struct {
 }
 
 type Message struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	UserID    uuid.UUID `json:"user_id"`
-	Text      string    `json:"text"`
-	ThreadID  uuid.UUID `json:"thread_id"`
+	ID          uuid.UUID `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	UserID      uuid.UUID `json:"user_id"`
+	Text        string    `json:"text"`
+	ThreadID    uuid.UUID `json:"thread_id"`
+	Attachments []string  `json:"attachments"`
 }
 
 type Revocation struct {

@@ -97,8 +97,8 @@ type GetMessagesEvent struct {
 	ThreadID string `json:"thread_id"`
 }
 type GetMessagesReturnEvent struct {
-	ThreadID uuid.UUID `json:"thread_id"`
-	Messages []Message `json:"messages"`
+	ThreadID uuid.UUID          `json:"thread_id"`
+	Messages []database.Message `json:"messages"`
 }
 type CreateMessageEvent struct {
 	ThreadID string `json:"thread_id"`
@@ -129,17 +129,12 @@ func (cfg *apiConfig) EventMessagesGet(event ws.Event, c *ws.Client) error {
 		return fmt.Errorf("bad thread id: %v", err)
 	}
 
-	dbMessages, err := cfg.DB.GetMessagesWithAttachment(context.Background(), id)
+	dbMessages, err := cfg.DB.GetMessages(context.Background(), id)
 	if err != nil {
 		return fmt.Errorf("cant get messages: %v", err)
 	}
 
-	messages := make([]Message, len(dbMessages))
-	for i, m := range dbMessages {
-		messages[i] = MessageWithAttachmentToMessage(m)
-	}
-
-	data, err := json.Marshal(GetMessagesReturnEvent{ThreadID: id, Messages: messages})
+	data, err := json.Marshal(GetMessagesReturnEvent{ThreadID: id, Messages: dbMessages})
 	if err != nil {
 		return fmt.Errorf("failed to marshal broadcast message: %v", err)
 	}

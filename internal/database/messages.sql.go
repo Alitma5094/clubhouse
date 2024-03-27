@@ -7,10 +7,10 @@ package database
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const createMessage = `-- name: CreateMessage :one
@@ -20,19 +20,21 @@ INSERT INTO messages (
         updated_at,
         user_id,
         text,
-        thread_id
+        thread_id,
+        attachments
     )
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, created_at, updated_at, user_id, text, thread_id
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, created_at, updated_at, user_id, text, thread_id, attachments
 `
 
 type CreateMessageParams struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	UserID    uuid.UUID `json:"user_id"`
-	Text      string    `json:"text"`
-	ThreadID  uuid.UUID `json:"thread_id"`
+	ID          uuid.UUID `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	UserID      uuid.UUID `json:"user_id"`
+	Text        string    `json:"text"`
+	ThreadID    uuid.UUID `json:"thread_id"`
+	Attachments []string  `json:"attachments"`
 }
 
 func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error) {
@@ -43,6 +45,7 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 		arg.UserID,
 		arg.Text,
 		arg.ThreadID,
+		pq.Array(arg.Attachments),
 	)
 	var i Message
 	err := row.Scan(
@@ -52,12 +55,13 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 		&i.UserID,
 		&i.Text,
 		&i.ThreadID,
+		pq.Array(&i.Attachments),
 	)
 	return i, err
 }
 
 const getMessages = `-- name: GetMessages :many
-SELECT id, created_at, updated_at, user_id, text, thread_id
+SELECT id, created_at, updated_at, user_id, text, thread_id, attachments
 FROM messages
 WHERE thread_id = $1
 ORDER BY created_at DESC
@@ -79,64 +83,7 @@ func (q *Queries) GetMessages(ctx context.Context, threadID uuid.UUID) ([]Messag
 			&i.UserID,
 			&i.Text,
 			&i.ThreadID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getMessagesWithAttachment = `-- name: GetMessagesWithAttachment :many
-SELECT m.id,
-    m.created_at,
-    m.updated_at,
-    m.user_id,
-    m.text,
-    m.thread_id,
-    a.media_type as attachment_media_type,
-    a.url as attachment_url
-FROM messages m
-    LEFT JOIN attachments a ON m.id = a.message_id
-WHERE m.thread_id = $1
-ORDER BY m.created_at DESC
-`
-
-type GetMessagesWithAttachmentRow struct {
-	ID                  uuid.UUID      `json:"id"`
-	CreatedAt           time.Time      `json:"created_at"`
-	UpdatedAt           time.Time      `json:"updated_at"`
-	UserID              uuid.UUID      `json:"user_id"`
-	Text                string         `json:"text"`
-	ThreadID            uuid.UUID      `json:"thread_id"`
-	AttachmentMediaType NullMedia      `json:"attachment_media_type"`
-	AttachmentUrl       sql.NullString `json:"attachment_url"`
-}
-
-func (q *Queries) GetMessagesWithAttachment(ctx context.Context, threadID uuid.UUID) ([]GetMessagesWithAttachmentRow, error) {
-	rows, err := q.db.QueryContext(ctx, getMessagesWithAttachment, threadID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetMessagesWithAttachmentRow
-	for rows.Next() {
-		var i GetMessagesWithAttachmentRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.UserID,
-			&i.Text,
-			&i.ThreadID,
-			&i.AttachmentMediaType,
-			&i.AttachmentUrl,
+			pq.Array(&i.Attachments),
 		); err != nil {
 			return nil, err
 		}
