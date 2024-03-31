@@ -2,7 +2,6 @@ package main
 
 import (
 	"clubhouse/internal/database"
-	"clubhouse/internal/ws"
 	"database/sql"
 	"log"
 	"net/http"
@@ -11,18 +10,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 
-	// "github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
 type apiConfig struct {
 	DB        *database.Queries
 	JWTSecret string
-	WSManager *ws.Manager
 }
 
 func main() {
-	// godotenv.Load(".env")
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -45,8 +41,7 @@ func main() {
 	}
 	dbQueries := database.New(db)
 
-	apiConf := apiConfig{DB: dbQueries, JWTSecret: jwtSecret, WSManager: ws.NewManager()}
-	apiConf.SetupEventHandlers()
+	apiConf := apiConfig{DB: dbQueries, JWTSecret: jwtSecret}
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
 		// AllowedOrigins:   []string{"https://foo.com"}, // Use this to allow specific origin hosts
@@ -70,6 +65,7 @@ func main() {
 	// User routes
 	apiRouter.Post("/users", apiConf.handlerUsersCreate)
 	apiRouter.Get("/users", apiConf.middlewareAuth(apiConf.handlerUsersGet))
+	apiRouter.Get("/users/self", apiConf.middlewareAuth(apiConf.handlerUsersGetSelf))
 
 	// Messages routes
 	apiRouter.Get("/threads/{id}/messages", apiConf.middlewareAuth(apiConf.handlerMessagesGet))

@@ -92,3 +92,7 @@ func (cfg *apiConfig) handlerUsersGet(w http.ResponseWriter, r *http.Request, us
 
 	respondWithJSON(w, http.StatusOK, users)
 }
+
+func (cfg *apiConfig) handlerUsersGetSelf(w http.ResponseWriter, _ *http.Request, user database.User) {
+	respondWithJSON(w, http.StatusOK, DatabaseUserToUser(user))
+}
