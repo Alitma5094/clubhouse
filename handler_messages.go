@@ -39,8 +39,6 @@ func (cfg *apiConfig) handlerMessagesCreate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	cfg.BroadcastMessagesCreated(&newMessage)
-
 	respondWithJSON(w, http.StatusCreated, newMessage)
 }
 

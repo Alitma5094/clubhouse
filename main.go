@@ -92,8 +92,6 @@ func main() {
 	apiRouter.Get("/images/{image}", apiConf.handlerImagesGet)
 	apiRouter.Post("/upload", apiConf.middlewareAuth(apiConf.handlerImagesCreate))
 
-	apiRouter.Get("/ws/{apiKey}", apiConf.handlerWS)
-
 	router.Mount("/v1", apiRouter)
 
 	srv := &http.Server{
