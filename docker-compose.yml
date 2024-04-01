@@ -8,6 +8,7 @@ services:
       - PORT=8080
       - DB_URL=postgres://clubhouse:clubhouse@db:5432/clubhouse?sslmode=disable
       - JWT_SECRET=tzlprcokFPx1yY/OGh+i+O1PEFF9bOL7DImZ6EE+eWZBjRaXlv74t4bDTtPoNYIl
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-adminsdk.json
     depends_on:
       - db
   db:

@@ -20,6 +20,13 @@ type Event struct {
 	UserID    uuid.UUID `json:"user_id"`
 }
 
+type FcmToken struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Token     string    `json:"token"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type Message struct {
 	ID          uuid.UUID `json:"id"`
 	CreatedAt   time.Time `json:"created_at"`

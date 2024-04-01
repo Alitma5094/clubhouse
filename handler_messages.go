@@ -2,12 +2,14 @@ package main
 
 import (
 	"clubhouse/internal/database"
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
 	"time"
 
+	"firebase.google.com/go/v4/messaging"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
@@ -37,6 +39,43 @@ func (cfg *apiConfig) handlerMessagesCreate(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't create message")
 		return
+	}
+
+	// Obtain a messaging.Client from the App.
+	ctx := context.Background()
+	client, err := cfg.firebaseApp.Messaging(ctx)
+	if err != nil {
+		log.Fatalf("error getting Messaging client: %v\n", err)
+	}
+
+	fcm_tokens, err := cfg.DB.GetFcmTokens(r.Context(), params.ThreadID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get notification tokens")
+		return
+	}
+
+	data, err := json.Marshal(newMessage)
+	if err != nil {
+		log.Printf("Error marshalling JSON: %s", err)
+		return
+	}
+
+	for _, token := range fcm_tokens {
+		message := &messaging.Message{
+			Data: map[string]string{"payload": string(data), "type": "new_message"},
+			Notification: &messaging.Notification{
+				Title: "New message",
+				Body:  params.Text,
+			},
+			Token: token.Token,
+		}
+
+		// Send a message to the device corresponding to the provided
+		// registration token.
+		_, err = client.Send(ctx, message)
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}
 
 	respondWithJSON(w, http.StatusCreated, newMessage)

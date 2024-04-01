@@ -2,11 +2,13 @@ package main
 
 import (
 	"clubhouse/internal/database"
+	"context"
 	"database/sql"
 	"log"
 	"net/http"
 	"os"
 
+	firebase "firebase.google.com/go/v4"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 
@@ -14,8 +16,9 @@ import (
 )
 
 type apiConfig struct {
-	DB        *database.Queries
-	JWTSecret string
+	DB          *database.Queries
+	JWTSecret   string
+	firebaseApp *firebase.App
 }
 
 func main() {
@@ -41,7 +44,12 @@ func main() {
 	}
 	dbQueries := database.New(db)
 
-	apiConf := apiConfig{DB: dbQueries, JWTSecret: jwtSecret}
+	fbApp, err := firebase.NewApp(context.Background(), nil)
+	if err != nil {
+		log.Fatalf("error initializing firebase: %v\n", err)
+	}
+
+	apiConf := apiConfig{DB: dbQueries, JWTSecret: jwtSecret, firebaseApp: fbApp}
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
 		// AllowedOrigins:   []string{"https://foo.com"}, // Use this to allow specific origin hosts
@@ -61,6 +69,7 @@ func main() {
 	apiRouter.Post("/login", apiConf.handlerLogin)
 	apiRouter.Post("/refresh", apiConf.handlerRefresh)
 	apiRouter.Post("/revoke", apiConf.handlerRevoke)
+	apiRouter.Post("/register", apiConf.middlewareAuth(apiConf.handlerNotificationsRegisterDevice))
 
 	// User routes
 	apiRouter.Post("/users", apiConf.handlerUsersCreate)
